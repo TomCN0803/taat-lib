@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/taat.iml" filepath="$PROJECT_DIR$/.idea/taat.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../taat-lib/.idea/taat-lib.iml" filepath="$PROJECT_DIR$/../taat-lib/.idea/taat-lib.iml" />
     </modules>
   </component>
 </project>
