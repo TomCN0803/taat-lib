@@ -1,6 +1,7 @@
 package grouputils
 
 import (
+	"bytes"
 	"errors"
 	"math/big"
 
@@ -14,7 +15,7 @@ var (
 )
 
 // ScalarMult 求循环群元素a的k次幂
-func ScalarMult(a any, k *big.Int) (any, error) {
+func ScalarMult(a any, k *big.Int) (res any, err error) {
 	switch v := a.(type) {
 	case *bn.G1:
 		return new(bn.G1).ScalarMult(v, k), nil
@@ -25,8 +26,8 @@ func ScalarMult(a any, k *big.Int) (any, error) {
 	}
 }
 
-// GAdd 求循环群元素a+b
-func GAdd(a, b any) (any, error) {
+// Add 求循环群元素a+b
+func Add(a, b any) (ab any, err error) {
 	switch av := a.(type) {
 	case *bn.G1:
 		if bv, ok := b.(*bn.G1); ok {
@@ -65,7 +66,38 @@ func Pair(a, b any) (*bn.GT, error) {
 	}
 }
 
-// InvMod finds the inverse of a mod p
+// Neg 求-a
+func Neg(a any) (aNeg any, err error) {
+	switch v := a.(type) {
+	case *bn.G1:
+		return new(bn.G1).Neg(v), nil
+	case *bn.G2:
+		return new(bn.G2).Neg(v), nil
+	default:
+		return nil, ErrIllegalGroupType
+	}
+}
+
+// NewG1 get g1^k from G1
+func NewG1(k *big.Int) *bn.G1 {
+	return new(bn.G1).ScalarBaseMult(k)
+}
+
+// NewG2 get g2^k from G2
+func NewG2(k *big.Int) *bn.G2 {
+	return new(bn.G2).ScalarBaseMult(k)
+}
+
+// InvMod find the inverse of a mod p
 func InvMod(a, p *big.Int) *big.Int {
 	return new(big.Int).Exp(a, new(big.Int).Sub(p, big.NewInt(2)), p)
+}
+
+type serializable interface {
+	Marshal() []byte
+}
+
+// Equals checks if a == b
+func Equals(a, b serializable) bool {
+	return bytes.Equal(a.Marshal(), b.Marshal())
 }

@@ -1,17 +1,22 @@
 package ttbe
 
 import (
+	"bytes"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"math/big"
-	"reflect"
 
-	utils "github.com/TomCN0803/taat/pkg/grouputils"
-	"github.com/TomCN0803/taat/pkg/shamir"
+	utils "github.com/TomCN0803/taat-lib/pkg/grouputils"
+	"github.com/TomCN0803/taat-lib/pkg/shamir"
 	bn "golang.org/x/crypto/bn256"
 )
 
-var ErrInvalidCttbe = errors.New("invalid TTBE cipher text")
+var (
+	ErrInvalidCttbe                = errors.New("invalid TTBE cipher text")
+	ErrUnequalLenOfTVKsAndAudClues = errors.New("unequal length of tvks and audClues")
+	ErrEmptyTVKsOrAudClues         = errors.New("tvks or audClues must not be empty")
+)
 
 var hPair struct {
 	h1 *bn.G1
@@ -25,48 +30,49 @@ func SetHPair(h1 *bn.G1, h2 *bn.G2) {
 
 // TPK TTBE公钥
 type TPK struct {
-	H1, U1, V1, W1, Z1 *bn.G1
-	H2, U2, V2, W2, Z2 *bn.G2
+	h1, u1, v1, w1, z1 *bn.G1
+	h2, u2, v2, w2, z2 *bn.G2
 }
 
 // TSK TTBE私钥
 type TSK struct {
-	index uint64
-	u, v  *big.Int
+	id   uint64
+	u, v *big.Int
 }
 
 // TVK TTBE验证证密钥
 type TVK struct {
-	index  uint64
-	U1, V1 *bn.G1
-	U2, V2 *bn.G2
+	id     uint64
+	u1, v1 *bn.G1
+	u2, v2 *bn.G2
 }
 
 // Cttbe TTBE密文
 type Cttbe struct {
-	first              bool // true if in G1 and false in G2
+	inG1               bool // true if in G1 and false in G2
 	c1, c2, c3, c4, c5 any
 }
 
 // AudClue 审计线索，即auditing clue
 type AudClue struct {
-	index    uint64
+	id       uint64
+	inG1     bool // true if in G1 and false in G2
 	ac1, ac2 any
 }
 
 // Parameters TTBE初始化参数
 type Parameters struct {
 	TPK  *TPK
-	TSKs []TSK
-	TVKs []TVK
+	TSKs []*TSK
+	TVKs []*TVK
 }
 
 // Setup 初始化TTBE参数，n为审计者的数量，t为门限阈值
 // 如果hPair被初始化了则使用hPair的值作为H1、H2的值
 func Setup(n, t uint64) (*Parameters, error) {
 	var err error
-	tsks := make([]TSK, 0, n)
-	tvks := make([]TVK, 0, n)
+	tsks := make([]*TSK, 0, n)
+	tvks := make([]*TVK, 0, n)
 
 	var h *big.Int
 	if hPair.h1 == nil || hPair.h2 == nil {
@@ -117,12 +123,12 @@ func Setup(n, t uint64) (*Parameters, error) {
 
 	for i := uint64(0); i < n; i++ {
 		usi, vsi := us[i], vs[i]
-		tsks = append(tsks, TSK{i + 1, usi.Y(), vsi.Y()})
+		tsks = append(tsks, &TSK{i + 1, usi.Y(), vsi.Y()})
 		tvkU1i := new(bn.G1).ScalarMult(h1, usi.Y())
-		tvkV1i := new(bn.G1).ScalarMult(h1, vsi.Y())
+		tvkV1i := new(bn.G1).ScalarMult(v1, vsi.Y())
 		tvkU2i := new(bn.G2).ScalarMult(h2, usi.Y())
-		tvkV2i := new(bn.G2).ScalarMult(h2, vsi.Y())
-		tvks = append(tvks, TVK{i + 1, tvkU1i, tvkV1i, tvkU2i, tvkV2i})
+		tvkV2i := new(bn.G2).ScalarMult(v2, vsi.Y())
+		tvks = append(tvks, &TVK{i + 1, tvkU1i, tvkV1i, tvkU2i, tvkV2i})
 	}
 
 	return &Parameters{
@@ -148,9 +154,9 @@ func Encrypt(tpk *TPK, tag *big.Int, m any) (*Cttbe, error) {
 	switch m.(type) {
 	case *bn.G1:
 		first = true
-		h, v, u, w, z = tpk.H1, tpk.V1, tpk.U1, tpk.W1, tpk.Z1
+		h, v, u, w, z = tpk.h1, tpk.v1, tpk.u1, tpk.w1, tpk.z1
 	case *bn.G2:
-		h, v, u, w, z = tpk.H2, tpk.V2, tpk.U2, tpk.W2, tpk.Z2
+		h, v, u, w, z = tpk.h2, tpk.v2, tpk.u2, tpk.w2, tpk.z2
 	default:
 		return nil, utils.ErrIllegalGroupType
 	}
@@ -158,42 +164,82 @@ func Encrypt(tpk *TPK, tag *big.Int, m any) (*Cttbe, error) {
 	c1, _ := utils.ScalarMult(h, r1)
 	c2, _ := utils.ScalarMult(v, r2)
 	c3, _ := utils.ScalarMult(u, new(big.Int).Add(r1, r2))
-	c3, _ = utils.GAdd(c3, m)
+	c3, _ = utils.Add(c3, m)
 	c4, _ := utils.ScalarMult(u, tag)
-	c4, _ = utils.GAdd(c4, w)
+	c4, _ = utils.Add(c4, w)
 	c4, _ = utils.ScalarMult(c4, r1)
 	c5, _ := utils.ScalarMult(u, tag)
-	c5, _ = utils.GAdd(c5, z)
+	c5, _ = utils.Add(c5, z)
 	c5, _ = utils.ScalarMult(c5, r2)
 
 	return &Cttbe{first, c1, c2, c3, c4, c5}, nil
 }
 
+// Combine 根据线索恢复出cttbe对应的明文
+// tvks和clues数组要保持一致的对应顺序,且数量必须大于等于解密阈值t，否则会出错
+func Combine(tpk *TPK, tag *big.Int, cttbe *Cttbe, tvks []*TVK, clues []*AudClue) (result any, err error) {
+	if len(tvks) == 0 || len(clues) == 0 {
+		return nil, ErrEmptyTVKsOrAudClues
+	}
+	if len(tvks) != len(clues) {
+		return nil, ErrUnequalLenOfTVKsAndAudClues
+	}
+	if !IsValidEnc(tpk, tag, cttbe) {
+		return nil, ErrInvalidCttbe
+	}
+
+	indices := make([]*big.Int, len(clues))
+	for i, clue := range clues {
+		indices[i] = big.NewInt(int64(clue.id))
+	}
+
+	var den any
+	if cttbe.inG1 {
+		den = new(bn.G1).Identity()
+	} else {
+		den = new(bn.G2).Identity()
+	}
+	for i, ac := range clues {
+		if !IsValidAudClue(tpk, tag, cttbe, tvks[i], ac) {
+			return nil, fmt.Errorf("invalid audit clue of id %d", ac.id)
+		}
+		idx := big.NewInt(int64(ac.id))
+		coeff := shamir.LagCoeff(idx, indices, bn.Order)
+		c1, _ := utils.ScalarMult(ac.ac1, coeff)
+		c2, _ := utils.ScalarMult(ac.ac2, coeff)
+		d, _ := utils.Add(c1, c2)
+		den, _ = utils.Add(den, d)
+	}
+	den, _ = utils.Neg(den)
+
+	return utils.Add(cttbe.c3, den)
+}
+
 // IsValidEnc 验证密文cttbe是否在给定tpk和tag下有效
 func IsValidEnc(tpk *TPK, tag *big.Int, cttbe *Cttbe) bool {
 	var u, v, w, h, z any
-	if !cttbe.first {
-		u, v, w, h, z = tpk.U1, tpk.V1, tpk.W1, tpk.H1, tpk.Z1
+	if !cttbe.inG1 {
+		u, v, w, h, z = tpk.u1, tpk.v1, tpk.w1, tpk.h1, tpk.z1
 	} else {
-		u, v, w, h, z = tpk.U2, tpk.V2, tpk.W2, tpk.H2, tpk.Z2
+		u, v, w, h, z = tpk.u2, tpk.v2, tpk.w2, tpk.h2, tpk.z2
 	}
 
 	uw, _ := utils.ScalarMult(u, tag)
-	uw, _ = utils.GAdd(uw, w)
+	uw, _ = utils.Add(uw, w)
 	p1, _ := utils.Pair(cttbe.c1, uw)
 
 	uz, _ := utils.ScalarMult(u, tag)
-	uz, _ = utils.GAdd(uz, z)
+	uz, _ = utils.Add(uz, z)
 	p2, _ := utils.Pair(cttbe.c2, uz)
 
 	p4, _ := utils.Pair(cttbe.c4, h)
 	p5, _ := utils.Pair(cttbe.c5, v)
 
-	return reflect.DeepEqual(p1, p4) && reflect.DeepEqual(p2, p5)
+	return bytes.Equal(p1.Marshal(), p4.Marshal()) && bytes.Equal(p2.Marshal(), p5.Marshal())
 }
 
-// ShareDec return an auditing clue.
-func ShareDec(tpk *TPK, tsk *TSK, tag *big.Int, cttbe *Cttbe) (*AudClue, error) {
+// ShareAudClue return an auditing clue.
+func ShareAudClue(tpk *TPK, tag *big.Int, cttbe *Cttbe, tsk *TSK) (*AudClue, error) {
 	if !IsValidEnc(tpk, tag, cttbe) {
 		return nil, ErrInvalidCttbe
 	}
@@ -207,5 +253,30 @@ func ShareDec(tpk *TPK, tsk *TSK, tag *big.Int, cttbe *Cttbe) (*AudClue, error) 
 		return nil, err
 	}
 
-	return &AudClue{tsk.index, ac1, ac2}, nil
+	return &AudClue{tsk.id, cttbe.inG1, ac1, ac2}, nil
+}
+
+// IsValidAudClue 验证AudClue是否在给定tpk和tag下有效
+func IsValidAudClue(tpk *TPK, tag *big.Int, cttbe *Cttbe, tvk *TVK, clue *AudClue) bool {
+	// clue和cttbe需要在同一个群中
+	if !IsValidEnc(tpk, tag, cttbe) || clue.inG1 != cttbe.inG1 {
+		return false
+	}
+
+	var ui, vi any
+	var h, v any
+	if cttbe.inG1 {
+		ui, vi = tvk.u2, tvk.v2
+		h, v = tpk.h2, tpk.v2
+	} else {
+		ui, vi = tvk.u1, tvk.v1
+		h, v = tpk.h1, tpk.v1
+	}
+
+	pi1, _ := utils.Pair(clue.ac1, h)
+	p1, _ := utils.Pair(cttbe.c1, ui)
+	pi2, _ := utils.Pair(clue.ac2, v)
+	p2, _ := utils.Pair(cttbe.c2, vi)
+
+	return bytes.Equal(pi1.Marshal(), p1.Marshal()) && bytes.Equal(pi2.Marshal(), p2.Marshal())
 }
