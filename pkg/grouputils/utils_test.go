@@ -110,6 +110,38 @@ func TestScalarMult(t *testing.T) {
 	}
 }
 
+func TestScalarBaseMult(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name string
+		inG1 bool
+		k    *big.Int
+		ans  serializable
+	}{
+		{
+			"in G1",
+			true,
+			big.NewInt(128),
+			NewG1(big.NewInt(128)),
+		},
+		{
+			"in G2",
+			false,
+			big.NewInt(128),
+			NewG2(big.NewInt(128)),
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			require.True(t, Equals(tc.ans, ScalarBaseMult(tc.inG1, tc.k).(serializable)))
+		})
+	}
+}
+
 func TestAdd(t *testing.T) {
 	t.Parallel()
 

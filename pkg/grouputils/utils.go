@@ -10,7 +10,7 @@ import (
 
 var (
 	ErrIllegalGroupType      = errors.New("illegal group type, must be G1 or G2")
-	ErrInconsistentGroupType = errors.New("inconsistent group type, must be both G1 or both G2")
+	ErrInconsistentGroupType = errors.New("inconsistent group type, must be all in G1 or all in G2")
 	ErrSameGroupInPairing    = errors.New("require 'a' and 'b' come from different groups")
 )
 
@@ -23,6 +23,15 @@ func ScalarMult(a any, k *big.Int) (res any, err error) {
 		return new(bn.G2).ScalarMult(v, k), nil
 	default:
 		return nil, ErrIllegalGroupType
+	}
+}
+
+// ScalarBaseMult 获取g^k，g是群生成元, inG1为true代表在G1否则在G2
+func ScalarBaseMult(inG1 bool, k *big.Int) (res any) {
+	if inG1 {
+		return NewG1(k)
+	} else {
+		return NewG2(k)
 	}
 }
 
@@ -88,11 +97,6 @@ func NewG2(k *big.Int) *bn.G2 {
 	return new(bn.G2).ScalarBaseMult(k)
 }
 
-// InvMod find the inverse of a mod p
-func InvMod(a, p *big.Int) *big.Int {
-	return new(big.Int).Exp(a, new(big.Int).Sub(p, big.NewInt(2)), p)
-}
-
 type serializable interface {
 	Marshal() []byte
 }
@@ -100,4 +104,21 @@ type serializable interface {
 // Equals checks if a == b
 func Equals(a, b serializable) bool {
 	return bytes.Equal(a.Marshal(), b.Marshal())
+}
+
+// InvMod find the inverse of a mod p
+func InvMod(a, p *big.Int) *big.Int {
+	return new(big.Int).Exp(a, new(big.Int).Sub(p, big.NewInt(2)), p)
+}
+
+// AddMod gets (a + b) mod bn256.Order
+func AddMod(a, b *big.Int) *big.Int {
+	ab := new(big.Int).Add(a, b)
+	return ab.Mod(ab, bn.Order)
+}
+
+// MulMod gets (a * b) mod bn256.Order
+func MulMod(a, b *big.Int) *big.Int {
+	ab := new(big.Int).Mul(a, b)
+	return ab.Mod(ab, bn.Order)
 }

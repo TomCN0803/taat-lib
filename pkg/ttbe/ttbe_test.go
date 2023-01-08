@@ -28,8 +28,8 @@ func TestSetupWithInitHPair(t *testing.T) {
 	params, err := Setup(10, 5)
 	require.NoError(t, err)
 	require.NotNil(t, params)
-	require.Equal(t, h1, params.TPK.h1)
-	require.Equal(t, h2, params.TPK.h2)
+	require.Equal(t, h1, params.TPK.H1)
+	require.Equal(t, h2, params.TPK.H2)
 }
 
 func TestTTBEHappyPath(t *testing.T) {
@@ -84,7 +84,7 @@ func TestTTBEHappyPath(t *testing.T) {
 			require.NoError(t, err)
 
 			// encrypt the message
-			cttbe, err := Encrypt(params.TPK, tag, msg)
+			cttbe, _, _, err := Encrypt(params.TPK, tag, msg)
 			require.NoError(t, err)
 			require.NotNil(t, cttbe)
 
@@ -120,15 +120,15 @@ func TestTTBEHappyPath(t *testing.T) {
 
 func examineShareAudClueCorrectness(t *testing.T, tsk *TSK, clue *AudClue, cttbe *Cttbe) {
 	require.NotNil(t, clue)
-	require.Equal(t, cttbe.inG1, clue.inG1)
+	require.Equal(t, cttbe.InG1, clue.inG1)
 	if clue.inG1 {
 		ac1, ok := clue.ac1.(*bn256.G1)
 		require.True(t, ok)
 		ac2, ok := clue.ac2.(*bn256.G1)
 		require.True(t, ok)
-		c1, ok := cttbe.c1.(*bn256.G1)
+		c1, ok := cttbe.C1.(*bn256.G1)
 		require.True(t, ok)
-		c2, ok := cttbe.c2.(*bn256.G1)
+		c2, ok := cttbe.C2.(*bn256.G1)
 		require.True(t, ok)
 
 		require.True(t, utils.Equals(ac1, new(bn256.G1).ScalarMult(c1, tsk.u)))
@@ -138,9 +138,9 @@ func examineShareAudClueCorrectness(t *testing.T, tsk *TSK, clue *AudClue, cttbe
 		require.True(t, ok)
 		ac2, ok := clue.ac2.(*bn256.G2)
 		require.True(t, ok)
-		c1, ok := cttbe.c1.(*bn256.G2)
+		c1, ok := cttbe.C1.(*bn256.G2)
 		require.True(t, ok)
-		c2, ok := cttbe.c2.(*bn256.G2)
+		c2, ok := cttbe.C2.(*bn256.G2)
 		require.True(t, ok)
 
 		require.True(t, utils.Equals(ac1, new(bn256.G2).ScalarMult(c1, tsk.u)))
