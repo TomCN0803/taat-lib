@@ -9,7 +9,7 @@ import (
 
 	utils "github.com/TomCN0803/taat-lib/pkg/grouputils"
 	"github.com/TomCN0803/taat-lib/pkg/ttbe"
-	bn "golang.org/x/crypto/bn256"
+	bn "github.com/cloudflare/bn256"
 )
 
 // AuditProof 审计证明，
@@ -35,7 +35,7 @@ func NewAuditProof(
 		return nil, fmt.Errorf("failed to generate new audit proof: %w", ErrCttbeAndPKsNotInSameGroup)
 	}
 
-	r := new(big.Int).Add(r1, r2)
+	r := utils.AddMod(r1, r2)
 	rhos, err := genKRandomBigInts(3)
 	if err != nil {
 		return nil, err
@@ -75,7 +75,7 @@ func (ap *AuditProof) Verify(cttbe *ttbe.Cttbe, tpk *ttbe.TPK, nymPK *NymPK, h a
 
 	com1 := utils.ScalarBaseMult(cttbe.InG1, ap.p1)
 	com2 := utils.ScalarBaseMult(cttbe.InG1, ap.p2)
-	com3 := utils.ScalarBaseMult(cttbe.InG1, ap.p3)
+	com3 := utils.ScalarBaseMult(cttbe.InG1, ap.p1)
 
 	if cttbe.InG1 {
 		vc1 := com1.(*bn.G1)
@@ -85,7 +85,7 @@ func (ap *AuditProof) Verify(cttbe *ttbe.Cttbe, tpk *ttbe.TPK, nymPK *NymPK, h a
 		vc1.Add(vc1, new(bn.G2).ScalarMult(tpk.U2, ap.p2))
 	}
 
-	cInv := new(big.Int).ModInverse(ap.c, bn.Order)
+	cInv := new(big.Int).Mod(new(big.Int).Neg(ap.c), bn.Order)
 	e1c, _ := utils.ScalarMult(cttbe.C3, cInv)
 	com1, _ = utils.Add(com1, e1c)
 	e2c, _ := utils.ScalarMult(cttbe.C6, cInv)
@@ -131,6 +131,7 @@ func auditProveHash(com1, com2, com3 any, nymPK *NymPK, cttbe *ttbe.Cttbe) (sum 
 		h.Write(com3.(*bn.G2).Marshal())
 		h.Write(nymPK.pk.(*bn.G2).Marshal())
 	}
+	h.Write(cttbe.Marshal())
 
-	return h.Sum(cttbe.Marshal())
+	return h.Sum(nil)
 }

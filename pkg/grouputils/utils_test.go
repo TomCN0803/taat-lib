@@ -4,8 +4,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/cloudflare/bn256"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/crypto/bn256"
 )
 
 func TestEquals(t *testing.T) {

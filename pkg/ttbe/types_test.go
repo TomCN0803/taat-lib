@@ -4,8 +4,8 @@ import (
 	"crypto/rand"
 	"testing"
 
+	bn "github.com/cloudflare/bn256"
 	"github.com/stretchr/testify/require"
-	bn "golang.org/x/crypto/bn256"
 )
 
 func TestCttbeSerialize(t *testing.T) {

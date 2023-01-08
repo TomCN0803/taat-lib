@@ -6,7 +6,7 @@ import (
 	"math/big"
 
 	utils "github.com/TomCN0803/taat-lib/pkg/grouputils"
-	bn "golang.org/x/crypto/bn256"
+	bn "github.com/cloudflare/bn256"
 )
 
 var (
@@ -52,7 +52,7 @@ func (c *Cttbe) Marshal() []byte {
 		res = append(res, c.C5.(*bn.G1).Marshal()...)
 		res = append(res, c.C6.(*bn.G1).Marshal()...)
 	} else {
-		res = make([]byte, 0, 128*6+1)
+		res = make([]byte, 0, 129*6+1)
 		res = append(res, 0)
 		res = append(res, c.C1.(*bn.G2).Marshal()...)
 		res = append(res, c.C2.(*bn.G2).Marshal()...)
@@ -76,56 +76,66 @@ func (c *Cttbe) Unmarshal(buff []byte) error {
 	}
 
 	if c.InG1 {
-		var ok bool
-		c.C1, ok = new(bn.G1).Unmarshal(buff[1:65])
-		if !ok {
-			return fmt.Errorf("failed to unmarshal buff: %w", ErrMalFormedG1Elem)
+		c.C1 = new(bn.G1)
+		_, err := c.C1.(*bn.G1).Unmarshal(buff[1:65])
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal buff: %w", err)
 		}
-		c.C2, ok = new(bn.G1).Unmarshal(buff[65:129])
-		if !ok {
-			return fmt.Errorf("failed to unmarshal buff: %w", ErrMalFormedG1Elem)
+		c.C2 = new(bn.G1)
+		_, err = c.C2.(*bn.G1).Unmarshal(buff[65:129])
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal buff: %w", err)
 		}
-		c.C3, ok = new(bn.G1).Unmarshal(buff[129:193])
-		if !ok {
-			return fmt.Errorf("failed to unmarshal buff: %w", ErrMalFormedG1Elem)
+		c.C3 = new(bn.G1)
+		_, err = c.C3.(*bn.G1).Unmarshal(buff[129:193])
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal buff: %w", err)
 		}
-		c.C4, ok = new(bn.G1).Unmarshal(buff[193:257])
-		if !ok {
-			return fmt.Errorf("failed to unmarshal buff: %w", ErrMalFormedG1Elem)
+		c.C4 = new(bn.G1)
+		_, err = c.C4.(*bn.G1).Unmarshal(buff[193:257])
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal buff: %w", err)
 		}
-		c.C5, ok = new(bn.G1).Unmarshal(buff[257:321])
-		if !ok {
-			return fmt.Errorf("failed to unmarshal buff: %w", ErrMalFormedG1Elem)
+		c.C5 = new(bn.G1)
+		_, err = c.C5.(*bn.G1).Unmarshal(buff[257:321])
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal buff: %w", err)
 		}
-		c.C6, ok = new(bn.G1).Unmarshal(buff[321:])
-		if !ok {
-			return fmt.Errorf("failed to unmarshal buff: %w", ErrMalFormedG1Elem)
+		c.C6 = new(bn.G1)
+		_, err = c.C6.(*bn.G1).Unmarshal(buff[321:])
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal buff: %w", err)
 		}
 	} else {
-		var ok bool
-		c.C1, ok = new(bn.G2).Unmarshal(buff[1:129])
-		if !ok {
-			return fmt.Errorf("failed to unmarshal buff: %w", ErrMalFormedG2Elem)
+		c.C1 = new(bn.G2)
+		_, err := c.C1.(*bn.G2).Unmarshal(buff[1:130])
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal buff: %w", err)
 		}
-		c.C2, ok = new(bn.G2).Unmarshal(buff[129:257])
-		if !ok {
-			return fmt.Errorf("failed to unmarshal buff: %w", ErrMalFormedG2Elem)
+		c.C2 = new(bn.G2)
+		_, err = c.C2.(*bn.G2).Unmarshal(buff[130:259])
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal buff: %w", err)
 		}
-		c.C3, ok = new(bn.G2).Unmarshal(buff[257:385])
-		if !ok {
-			return fmt.Errorf("failed to unmarshal buff: %w", ErrMalFormedG2Elem)
+		c.C3 = new(bn.G2)
+		_, err = c.C3.(*bn.G2).Unmarshal(buff[259:388])
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal buff: %w", err)
 		}
-		c.C4, ok = new(bn.G2).Unmarshal(buff[385:513])
-		if !ok {
-			return fmt.Errorf("failed to unmarshal buff: %w", ErrMalFormedG2Elem)
+		c.C4 = new(bn.G2)
+		_, err = c.C4.(*bn.G2).Unmarshal(buff[388:517])
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal buff: %w", err)
 		}
-		c.C5, ok = new(bn.G2).Unmarshal(buff[513:641])
-		if !ok {
-			return fmt.Errorf("failed to unmarshal buff: %w", ErrMalFormedG2Elem)
+		c.C5 = new(bn.G2)
+		_, err = c.C5.(*bn.G2).Unmarshal(buff[517:646])
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal buff: %w", err)
 		}
-		c.C6, ok = new(bn.G2).Unmarshal(buff[641:])
-		if !ok {
-			return fmt.Errorf("failed to unmarshal buff: %w", ErrMalFormedG2Elem)
+		c.C6 = new(bn.G2)
+		_, err = c.C6.(*bn.G2).Unmarshal(buff[646:])
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal buff: %w", err)
 		}
 	}
 
@@ -135,7 +145,7 @@ func (c *Cttbe) Unmarshal(buff []byte) error {
 // Equals check if c == cttbe.
 // c == cttbe if
 //   - c.InG1 == cttbe.InG1
-//   - c.C1~c.C6 == cttbe.C1~cttbe.C6
+//   - c.C1...c.C6 == cttbe.C1...cttbe.C6
 func (c *Cttbe) Equals(cttbe *Cttbe) bool {
 	if c.InG1 != cttbe.InG1 {
 		return false

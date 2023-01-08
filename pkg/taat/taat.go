@@ -1,6 +1,6 @@
 package taat
 
-import bn "golang.org/x/crypto/bn256"
+import bn "github.com/cloudflare/bn256"
 
 // Parameters TAAT公共参数
 type Parameters struct {

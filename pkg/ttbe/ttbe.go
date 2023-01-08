@@ -9,7 +9,7 @@ import (
 
 	utils "github.com/TomCN0803/taat-lib/pkg/grouputils"
 	"github.com/TomCN0803/taat-lib/pkg/shamir"
-	bn "golang.org/x/crypto/bn256"
+	bn "github.com/cloudflare/bn256"
 )
 
 var (
@@ -18,16 +18,6 @@ var (
 	ErrEmptyTVKsOrAudClues         = errors.New("tvks or audClues must not be empty")
 )
 
-var hPair struct {
-	h1 *bn.G1
-	h2 *bn.G2
-}
-
-func SetHPair(h1 *bn.G1, h2 *bn.G2) {
-	hPair.h1 = h1
-	hPair.h2 = h2
-}
-
 // Setup 初始化TTBE参数，n为审计者的数量，t为门限阈值
 // 如果hPair被初始化了则使用hPair的值作为H1、H2的值
 func Setup(n, t uint64) (*Parameters, error) {
@@ -35,14 +25,10 @@ func Setup(n, t uint64) (*Parameters, error) {
 	tsks := make([]*TSK, 0, n)
 	tvks := make([]*TVK, 0, n)
 
-	var h *big.Int
-	if hPair.h1 == nil || hPair.h2 == nil {
-		h, err = rand.Int(rand.Reader, bn.Order)
-		if err != nil {
-			return nil, err
-		}
+	h, err := rand.Int(rand.Reader, bn.Order)
+	if err != nil {
+		return nil, err
 	}
-
 	w, err := rand.Int(rand.Reader, bn.Order)
 	if err != nil {
 		return nil, err
@@ -68,16 +54,9 @@ func Setup(n, t uint64) (*Parameters, error) {
 	us := shamir.GenShares(polyU, n, bn.Order)
 	vs := shamir.GenShares(polyV, n, bn.Order)
 
-	var h1 *bn.G1
-	var h2 *bn.G2
-	if h != nil {
-		h1, h2 = new(bn.G1).ScalarBaseMult(h), new(bn.G2).ScalarBaseMult(h)
-	} else {
-		h1, h2 = hPair.h1, hPair.h2
-	}
-
+	h1, h2 := new(bn.G1).ScalarBaseMult(h), new(bn.G2).ScalarBaseMult(h)
 	u1, u2 := new(bn.G1).ScalarMult(h1, u), new(bn.G2).ScalarMult(h2, u)
-	vInv := utils.InvMod(v, bn.Order) // get the inverse of v i.e. vInv
+	vInv := new(big.Int).ModInverse(v, bn.Order)
 	v1, v2 := new(bn.G1).ScalarMult(u1, vInv), new(bn.G2).ScalarMult(u2, vInv)
 	w1, w2 := new(bn.G1).ScalarMult(h1, w), new(bn.G2).ScalarMult(h2, w)
 	z1, z2 := new(bn.G1).ScalarMult(v1, z), new(bn.G2).ScalarMult(v2, z)
@@ -122,7 +101,7 @@ func Encrypt(tpk *TPK, tag *big.Int, m any) (cttbe *Cttbe, r1 *big.Int, r2 *big.
 		return nil, nil, nil, utils.ErrIllegalGroupType
 	}
 
-	r := new(big.Int).Add(r1, r2)
+	r := utils.AddMod(r1, r2)
 	c1, _ := utils.ScalarMult(h, r1)
 	c2, _ := utils.ScalarMult(v, r2)
 	c3, _ := utils.ScalarMult(u, r)
@@ -158,9 +137,9 @@ func Combine(tpk *TPK, tag *big.Int, cttbe *Cttbe, tvks []*TVK, clues []*AudClue
 
 	var den any
 	if cttbe.InG1 {
-		den = new(bn.G1).Identity()
+		den = utils.NewG1(big.NewInt(0))
 	} else {
-		den = new(bn.G2).Identity()
+		den = utils.NewG2(big.NewInt(0))
 	}
 	for i, ac := range clues {
 		if !IsValidAudClue(tpk, tag, cttbe, tvks[i], ac) {

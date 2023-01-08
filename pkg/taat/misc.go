@@ -4,7 +4,7 @@ import (
 	"crypto/rand"
 	"math/big"
 
-	"golang.org/x/crypto/bn256"
+	"github.com/cloudflare/bn256"
 )
 
 func genKRandomBigInts(k int) ([]*big.Int, error) {

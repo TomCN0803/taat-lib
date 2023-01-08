@@ -5,7 +5,7 @@ import (
 	"errors"
 	"math/big"
 
-	bn "golang.org/x/crypto/bn256"
+	bn "github.com/cloudflare/bn256"
 )
 
 var (
@@ -104,11 +104,6 @@ type serializable interface {
 // Equals checks if a == b
 func Equals(a, b serializable) bool {
 	return bytes.Equal(a.Marshal(), b.Marshal())
-}
-
-// InvMod find the inverse of a mod p
-func InvMod(a, p *big.Int) *big.Int {
-	return new(big.Int).Exp(a, new(big.Int).Sub(p, big.NewInt(2)), p)
 }
 
 // AddMod gets (a + b) mod bn256.Order
