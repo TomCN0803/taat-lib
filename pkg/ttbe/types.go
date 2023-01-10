@@ -9,11 +9,7 @@ import (
 	bn "github.com/cloudflare/bn256"
 )
 
-var (
-	ErrIllegalInG1Byte = errors.New("illegal InG1 byte, 0 for InG1 == false, 1 for InG1 == true")
-	ErrMalFormedG1Elem = errors.New("malformed G1 element")
-	ErrMalFormedG2Elem = errors.New("malformed G2 element")
-)
+var ErrIllegalInG1Byte = errors.New("illegal InG1 byte, 0 for InG1 == false, 1 for InG1 == true")
 
 // TPK TTBE公钥
 type TPK struct {
@@ -43,7 +39,7 @@ type Cttbe struct {
 func (c *Cttbe) Marshal() []byte {
 	var res []byte
 	if c.InG1 {
-		res = make([]byte, 0, 64*6+1)
+		res = make([]byte, 0, utils.G1SizeByte*6+1)
 		res = append(res, 1)
 		res = append(res, c.C1.(*bn.G1).Marshal()...)
 		res = append(res, c.C2.(*bn.G1).Marshal()...)
@@ -52,7 +48,7 @@ func (c *Cttbe) Marshal() []byte {
 		res = append(res, c.C5.(*bn.G1).Marshal()...)
 		res = append(res, c.C6.(*bn.G1).Marshal()...)
 	} else {
-		res = make([]byte, 0, 129*6+1)
+		res = make([]byte, 0, utils.G1SizeByte*6+1)
 		res = append(res, 0)
 		res = append(res, c.C1.(*bn.G2).Marshal()...)
 		res = append(res, c.C2.(*bn.G2).Marshal()...)
