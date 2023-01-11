@@ -7,6 +7,10 @@ import (
 	"github.com/cloudflare/bn256"
 )
 
+type serializable interface {
+	Marshal() []byte
+}
+
 func genKRandomBigInts(k int) ([]*big.Int, error) {
 	res := make([]*big.Int, 0, k)
 	for i := 0; i < k; i++ {

@@ -28,7 +28,7 @@ var (
 //  3. nymSK由usk产生，进而有nymPK由于upk产生
 func NewAuditProof(
 	tpk *ttbe.TPK, cttbe *ttbe.Cttbe, r1, r2 *big.Int,
-	usk, nymSK *big.Int, nymPK *NymPK, h any,
+	usk, nymSK *big.Int, nymPK *PK, h any,
 ) (*AuditProof, error) {
 	// nymPK、h、cttbe必须在同一个群中，G1或者G2
 	if !inSameGroup(cttbe, nymPK, h) {
@@ -68,7 +68,7 @@ func NewAuditProof(
 }
 
 // Verify 验证AuditProof是否有效
-func (ap *AuditProof) Verify(cttbe *ttbe.Cttbe, tpk *ttbe.TPK, nymPK *NymPK, h any) error {
+func (ap *AuditProof) Verify(cttbe *ttbe.Cttbe, tpk *ttbe.TPK, nymPK *PK, h any) error {
 	if !inSameGroup(cttbe, nymPK, h) {
 		return fmt.Errorf("failed to verify audit proof: %w", ErrCttbeAndPKsNotInSameGroup)
 	}
@@ -103,7 +103,7 @@ func (ap *AuditProof) Verify(cttbe *ttbe.Cttbe, tpk *ttbe.TPK, nymPK *NymPK, h a
 }
 
 // inSameGroup 检查nymPK、h、cttbe是否在同一个群中，G1或者G2
-func inSameGroup(cttbe *ttbe.Cttbe, nymPK *NymPK, h any) bool {
+func inSameGroup(cttbe *ttbe.Cttbe, nymPK *PK, h any) bool {
 	if cttbe.InG1 {
 		if _, ok := h.(*bn.G1); !ok || !nymPK.inG1 {
 			return false
@@ -118,7 +118,7 @@ func inSameGroup(cttbe *ttbe.Cttbe, nymPK *NymPK, h any) bool {
 }
 
 // auditProveHash 生成Hash(com1, com2, com3, nymPK, cttbe)
-func auditProveHash(com1, com2, com3 any, nymPK *NymPK, cttbe *ttbe.Cttbe) (sum []byte) {
+func auditProveHash(com1, com2, com3 any, nymPK *PK, cttbe *ttbe.Cttbe) (sum []byte) {
 	h := sha256.New()
 	if cttbe.InG1 {
 		h.Write(com1.(*bn.G1).Marshal())

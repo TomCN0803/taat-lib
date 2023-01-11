@@ -115,7 +115,7 @@ type audParams struct {
 	cttbe      *ttbe.Cttbe
 	r1, r2     *big.Int
 	usk, nymSK *big.Int
-	nymPK      *NymPK
+	nymPK      *PK
 	h          any
 }
 
@@ -138,13 +138,13 @@ func newAudParams(inG1 bool) *audParams {
 	params.tpk = &ttbe.TPK{U1: u1, U2: u2}
 
 	var h any
-	var nymPK *NymPK
+	var nymPK *PK
 	var cttbe *ttbe.Cttbe
 	rint, _ := rand.Int(rand.Reader, bn.Order)
 	if inG1 {
 		_, h, _ = bn.RandomG1(rand.Reader)
 		upk := new(bn.G1).ScalarBaseMult(usk)
-		nymPK = &NymPK{
+		nymPK = &PK{
 			inG1: true,
 			pk:   new(bn.G1).Add(upk, new(bn.G1).ScalarMult(h.(*bn.G1), nymSK)),
 		}
@@ -160,7 +160,7 @@ func newAudParams(inG1 bool) *audParams {
 	} else {
 		_, h, _ = bn.RandomG2(rand.Reader)
 		upk := new(bn.G2).ScalarBaseMult(usk)
-		nymPK = &NymPK{
+		nymPK = &PK{
 			inG1: false,
 			pk:   new(bn.G2).Add(upk, new(bn.G2).ScalarMult(h.(*bn.G2), nymSK)),
 		}
