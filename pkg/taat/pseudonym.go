@@ -99,7 +99,6 @@ type NymSignature struct {
 //  1. 用户持有usk
 //  2. 用户签名所使用的假名私钥nymSK是由usk生成
 func NewNymSignature(usk, nymSK *big.Int, nymPK *NymPK, h any, msg []byte) (*NymSignature, error) {
-	eps := "failed to generate new pseudonym signature"
 	r1, _ := rand.Int(rand.Reader, bn.Order)
 	r2, _ := rand.Int(rand.Reader, bn.Order)
 	var com interface{ Marshal() []byte }
@@ -109,7 +108,7 @@ func NewNymSignature(usk, nymSK *big.Int, nymPK *NymPK, h any, msg []byte) (*Nym
 	case *bn.G2:
 		com = utils.ProductOfExpG2(utils.G2Generator(), r1, hv, r2)
 	default:
-		return nil, fmt.Errorf("%s: %w", eps, ErrWrongHType)
+		return nil, fmt.Errorf("\"failed to generate new pseudonym signature\": %w", ErrWrongHType)
 	}
 
 	c := new(big.Int).SetBytes(nymSigProveHash(com, nymPK, msg))
