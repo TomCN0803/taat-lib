@@ -10,6 +10,29 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const numEArgs = 100
+
+func BenchmarkEProdNoOpt(b *testing.B) {
+	args := randEArgs(numEArgs)
+	for i := 0; i < b.N; i++ {
+		eProductNoOpt(args)
+	}
+}
+
+func BenchmarkEProdOptMiller(b *testing.B) {
+	args := randEArgs(numEArgs)
+	for i := 0; i < b.N; i++ {
+		eProduct(args, eProdOptMiller)
+	}
+}
+
+func BenchmarkEProdOptMillerLoopUnroll(b *testing.B) {
+	args := randEArgs(numEArgs)
+	for i := 0; i < b.N; i++ {
+		eProduct(args, eProdOptMillerLoopUnroll)
+	}
+}
+
 func TestEProduct(t *testing.T) {
 	t.Parallel()
 	args := randEArgs(100)
