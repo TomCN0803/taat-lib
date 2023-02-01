@@ -107,6 +107,7 @@ func TestUskProof(t *testing.T) {
 
 			if tc.err != nil {
 				proof.p, err = rand.Int(rand.Reader, bn.Order)
+				require.NoError(t, err)
 			}
 			err = proof.Verify(upk, nonce)
 			if tc.err != nil {
