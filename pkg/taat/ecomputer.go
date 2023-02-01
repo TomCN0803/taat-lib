@@ -51,26 +51,17 @@ func (ec *eComputer) run() {
 	}
 
 	go func() {
-		qc := 0
-		for {
-			select {
-			case r := <-ec.resc:
-				ec.res[r.i][r.j] = r.res
-			case <-ec.resq:
-				qc++
-				if qc == ec.nworker {
-					for {
-						select {
-						case r := <-ec.resc:
-							ec.res[r.i][r.j] = r.res
-						default:
-							ec.done <- struct{}{}
-							return
-						}
-					}
-				}
-			}
+		for i := 0; i < ec.nworker; i++ {
+			<-ec.resq
 		}
+		close(ec.resc)
+	}()
+
+	go func() {
+		for r := range ec.resc {
+			ec.res[r.i][r.j] = r.res
+		}
+		ec.done <- struct{}{}
 	}()
 }
 
