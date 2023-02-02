@@ -9,7 +9,7 @@ import (
 	bn "github.com/cloudflare/bn256"
 )
 
-var ErrIllegalInG1Byte = errors.New("illegal InG1 byte, 0 for InG1 == false, 1 for InG1 == true")
+var ErrIllegalInG1Byte = errors.New("illegal rG1 byte, 0 for rG1 == false, 1 for rG1 == true")
 
 // TPK TTBE公钥
 type TPK struct {
@@ -140,7 +140,7 @@ func (c *Cttbe) Unmarshal(buff []byte) error {
 
 // Equals check if c == cttbe.
 // c == cttbe if
-//   - c.InG1 == cttbe.InG1
+//   - c.rG1 == cttbe.rG1
 //   - c.C1...c.C6 == cttbe.C1...cttbe.C6
 func (c *Cttbe) Equals(cttbe *Cttbe) bool {
 	if c.InG1 != cttbe.InG1 {

@@ -141,10 +141,10 @@ func randIntsNoRepeat(n, k int) ([]int, error) {
 		return nil, errors.New("k is larger than n")
 	}
 
-	mrand.Seed(time.Now().UnixNano())
+	rng := mrand.New(mrand.NewSource(time.Now().UnixNano()))
 	m := make(map[int]struct{})
 	for len(m) < k {
-		m[mrand.Intn(n)] = struct{}{}
+		m[rng.Intn(n)] = struct{}{}
 	}
 
 	res := make([]int, 0, k)
