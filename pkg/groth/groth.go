@@ -28,8 +28,8 @@ type Signature struct {
 
 // Parameters Groth公共参数
 type Parameters struct {
-	y1s []*bn.G1
-	y2s []*bn.G2
+	Y1s []*bn.G1
+	Y2s []*bn.G2
 }
 
 // PK Groth签名公钥，pk1 == g1^sk，pk2 == g2^sk
@@ -53,7 +53,7 @@ func Setup(max1, max2 int) *Parameters {
 }
 
 // GenKeyPair 产生Groth公私钥对
-func GenKeyPair(sp *Parameters) (sk *big.Int, pk *PK) {
+func GenKeyPair() (sk *big.Int, pk *PK) {
 	sk, _ = rand.Int(rand.Reader, bn.Order)
 	pk = &PK{
 		pk1: new(bn.G1).ScalarBaseMult(sk),
@@ -74,18 +74,18 @@ func NewSignature(sp *Parameters, sk *big.Int, m *Message) *Signature {
 	}
 	if m.InG1 {
 		sig.r = new(bn.G2).ScalarBaseMult(rho)
-		s := new(bn.G1).Add(sp.y1s[0], new(bn.G1).ScalarBaseMult(sk))
+		s := new(bn.G1).Add(sp.Y1s[0], new(bn.G1).ScalarBaseMult(sk))
 		sig.s = s.ScalarMult(s, rhoInv)
 		for i := range sig.ts {
-			t := new(bn.G1).Add(m.ms[i].(*bn.G1), new(bn.G1).ScalarMult(sp.y1s[i], sk))
+			t := new(bn.G1).Add(m.ms[i].(*bn.G1), new(bn.G1).ScalarMult(sp.Y1s[i], sk))
 			sig.ts[i] = t.ScalarMult(t, rhoInv)
 		}
 	} else {
 		sig.r = new(bn.G1).ScalarBaseMult(rho)
-		s := new(bn.G2).Add(sp.y2s[0], new(bn.G2).ScalarBaseMult(sk))
+		s := new(bn.G2).Add(sp.Y2s[0], new(bn.G2).ScalarBaseMult(sk))
 		sig.s = s.ScalarMult(s, rhoInv)
 		for i := range sig.ts {
-			t := new(bn.G2).Add(m.ms[i].(*bn.G2), new(bn.G2).ScalarMult(sp.y2s[i], sk))
+			t := new(bn.G2).Add(m.ms[i].(*bn.G2), new(bn.G2).ScalarMult(sp.Y2s[i], sk))
 			sig.ts[i] = t.ScalarMult(t, rhoInv)
 		}
 	}
@@ -96,7 +96,7 @@ func NewSignature(sp *Parameters, sk *big.Int, m *Message) *Signature {
 // Verify 验证groth签名
 func (sig *Signature) Verify(sp *Parameters, pk *PK, m *Message) error {
 	const prefix = "failed to verify groth signature"
-	ny1, ny2 := len(sp.y1s), len(sp.y2s)
+	ny1, ny2 := len(sp.Y1s), len(sp.Y2s)
 	if sig.STG1 && (len(m.ms) > ny1 || len(sig.ts) > ny1) {
 		return fmt.Errorf("%s: %w, at most %d", prefix, ErrArgOverflow, ny1)
 	}
@@ -138,19 +138,19 @@ func (sig *Signature) Verify(sp *Parameters, pk *PK, m *Message) error {
 		var g2a, g2b, g2c *bn.G2
 		if i < len(m.ms) {
 			if sig.STG1 {
-				g1a, g1b, g1c = sig.ts[i].(*bn.G1), sp.y1s[i], m.ms[i].(*bn.G1)
+				g1a, g1b, g1c = sig.ts[i].(*bn.G1), sp.Y1s[i], m.ms[i].(*bn.G1)
 				g2a, g2b, g2c = sig.r.(*bn.G2), pk.pk2, g2
 			} else {
 				g1a, g1b, g1c = sig.r.(*bn.G1), pk.pk1, g1
-				g2a, g2b, g2c = sig.ts[i].(*bn.G2), sp.y2s[i], m.ms[i].(*bn.G2)
+				g2a, g2b, g2c = sig.ts[i].(*bn.G2), sp.Y2s[i], m.ms[i].(*bn.G2)
 			}
 		} else {
 			if sig.STG1 {
-				g1a, g1b, g1c = sig.s.(*bn.G1), sp.y1s[0], g1
+				g1a, g1b, g1c = sig.s.(*bn.G1), sp.Y1s[0], g1
 				g2a, g2b, g2c = sig.r.(*bn.G2), g2, pk.pk2
 			} else {
 				g1a, g1b, g1c = sig.r.(*bn.G1), g1, pk.pk1
-				g2a, g2b, g2c = sig.s.(*bn.G2), sp.y2s[0], g2
+				g2a, g2b, g2c = sig.s.(*bn.G2), sp.Y2s[0], g2
 			}
 		}
 
@@ -161,9 +161,11 @@ func (sig *Signature) Verify(sp *Parameters, pk *PK, m *Message) error {
 	return err
 }
 
-// Randomize randomizes sig.
-func (sig *Signature) Randomize() {
-	rho, _ := rand.Int(rand.Reader, bn.Order)
+// Randomize randomizes sig with rho if rho is provided or a random big int.
+func (sig *Signature) Randomize(rho *big.Int) {
+	if rho == nil {
+		rho, _ = rand.Int(rand.Reader, bn.Order)
+	}
 	rhoInv := new(big.Int).ModInverse(rho, bn.Order)
 	if sig.STG1 {
 		r := sig.r.(*bn.G2)
