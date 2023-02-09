@@ -1,6 +1,6 @@
 module github.com/TomCN0803/taat-lib
 
-go 1.19
+go 1.20
 
 require (
 	github.com/cloudflare/bn256 v0.0.0-20220804214613-39fbc7d184f0

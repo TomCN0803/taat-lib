@@ -19,7 +19,7 @@ func TestGroth(t *testing.T) {
 	t.Parallel()
 
 	sp := groth.Setup(n1, n2)
-	sk, pk := groth.GenKeyPair()
+	sk, pk := groth.GenKeyPair(nil)
 	testCases := []struct {
 		name string
 	}{
@@ -32,7 +32,7 @@ func TestGroth(t *testing.T) {
 	}
 
 	for i, tc := range testCases {
-		tc := tc
+		i, tc := i, tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			inG1 := i == 0

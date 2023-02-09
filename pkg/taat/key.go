@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/TomCN0803/taat-lib/pkg/groth"
 	utils "github.com/TomCN0803/taat-lib/pkg/grouputils"
 	bn "github.com/cloudflare/bn256"
 )
@@ -23,45 +24,76 @@ type PK struct {
 	pk   serializable
 }
 
+// NewUserKeyPair 根据授权层级level来生成用户公私钥对
+func NewUserKeyPair(level int) (sk *big.Int, upk *PK) {
+	sk, gpk := groth.GenKeyPair(nil)
+	upk = new(PK)
+	upk.inG1 = level%2 == 0
+	if upk.inG1 {
+		upk.pk = gpk.G1()
+	} else {
+		upk.pk = gpk.G2()
+	}
+	return sk, upk
+}
+
+// Verify 验证pk是否由sk生成
+func (pk *PK) Verify(sk *big.Int) bool {
+	pk2 := &PK{inG1: pk.inG1}
+	_, gpk := groth.GenKeyPair(sk)
+	if pk.inG1 {
+		pk2.pk = gpk.G1()
+	} else {
+		pk2.pk = gpk.G2()
+	}
+
+	return pk.Equals(pk2)
+}
+
 // Marshal marshals PK
-func (np *PK) Marshal() []byte {
+func (pk *PK) Marshal() []byte {
 	var res []byte
-	if np.inG1 {
+	if pk.inG1 {
 		res = make([]byte, 0, utils.G1SizeByte+1)
 		res = append(res, 1)
 	} else {
 		res = make([]byte, 0, utils.G2SizeByte+1)
 		res = append(res, 0)
 	}
-	res = append(res, np.pk.Marshal()...)
+	res = append(res, pk.pk.Marshal()...)
 
 	return res
 }
 
-func (np *PK) Unmarshal(buff []byte) error {
+func (pk *PK) Unmarshal(buff []byte) error {
 	if buff[0] == 1 {
-		np.inG1 = true
+		pk.inG1 = true
 	} else if buff[0] == 0 {
-		np.inG1 = false
+		pk.inG1 = false
 	} else {
 		return fmt.Errorf("failed to unmarshal buff: %w", ErrIllegalInG1Byte)
 	}
 
-	if np.inG1 {
-		np.pk = new(bn.G1)
-		_, err := np.pk.(*bn.G1).Unmarshal(buff[1 : 1+utils.G1SizeByte])
+	if pk.inG1 {
+		pk.pk = new(bn.G1)
+		_, err := pk.pk.(*bn.G1).Unmarshal(buff[1 : 1+utils.G1SizeByte])
 		if err != nil {
 			return fmt.Errorf("failed to unmarshal buff: %w", err)
 		}
 	} else {
-		np.pk = new(bn.G2)
-		_, err := np.pk.(*bn.G2).Unmarshal(buff[1 : 1+utils.G2SizeByte])
+		pk.pk = new(bn.G2)
+		_, err := pk.pk.(*bn.G2).Unmarshal(buff[1 : 1+utils.G2SizeByte])
 		if err != nil {
 			return fmt.Errorf("failed to unmarshal buff: %w", err)
 		}
 	}
 
 	return nil
+}
+
+// Equals checks if pk == pk2
+func (pk *PK) Equals(pk2 *PK) bool {
+	return bytes.Equal(pk.Marshal(), pk2.Marshal())
 }
 
 type UskProof struct {

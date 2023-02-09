@@ -38,6 +38,21 @@ type PK struct {
 	pk2 *bn.G2
 }
 
+// G1 返回在g1的pk
+func (pk *PK) G1() *bn.G1 {
+	return pk.pk1
+}
+
+// G2 返回在g2的pk
+func (pk *PK) G2() *bn.G2 {
+	return pk.pk2
+}
+
+// NewGrothPK 生成新的groth公钥
+func NewGrothPK(pk1 *bn.G1, pk2 *bn.G2) *PK {
+	return &PK{pk1, pk2}
+}
+
 // Setup 初始化在Groth签名
 func Setup(max1, max2 int) *Parameters {
 	y1s := make([]*bn.G1, max1)
@@ -53,8 +68,12 @@ func Setup(max1, max2 int) *Parameters {
 }
 
 // GenKeyPair 产生Groth公私钥对
-func GenKeyPair() (sk *big.Int, pk *PK) {
-	sk, _ = rand.Int(rand.Reader, bn.Order)
+// 如果提供了私钥即isk不为空，则使用isk为私钥，否则随机生成私钥
+func GenKeyPair(isk *big.Int) (sk *big.Int, pk *PK) {
+	sk = isk
+	if sk == nil {
+		sk, _ = rand.Int(rand.Reader, bn.Order)
+	}
 	pk = &PK{
 		pk1: new(bn.G1).ScalarBaseMult(sk),
 		pk2: new(bn.G2).ScalarBaseMult(sk),
