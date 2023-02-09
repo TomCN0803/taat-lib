@@ -12,10 +12,11 @@ import (
 )
 
 var (
-	ErrArgOverflow        = errors.New("wrong argument length supplied")
-	ErrInconsistentArgLen = errors.New("inconsistent argument length")
-	ErrFailedERSPredicate = errors.New("failed for e(r, s) predicate")
-	ErrFailedMsgPredicate = errors.New("failed for message predicate")
+	ErrIllegalMaxMessageNum = errors.New("illegal max message number, must greater than 0")
+	ErrArgOverflow          = errors.New("wrong argument length supplied")
+	ErrInconsistentArgLen   = errors.New("inconsistent argument length")
+	ErrFailedERSPredicate   = errors.New("failed for e(r, s) predicate")
+	ErrFailedMsgPredicate   = errors.New("failed for message predicate")
 )
 
 // Signature Groth签名
@@ -54,7 +55,10 @@ func NewGrothPK(pk1 *bn.G1, pk2 *bn.G2) *PK {
 }
 
 // Setup 初始化在Groth签名
-func Setup(max1, max2 int) *Parameters {
+func Setup(max1, max2 int) (*Parameters, error) {
+	if max1 <= 0 || max2 <= 0 {
+		return nil, fmt.Errorf("failed to set up groth: %w", ErrIllegalMaxMessageNum)
+	}
 	y1s := make([]*bn.G1, max1)
 	for i := range y1s {
 		_, y1s[i], _ = bn.RandomG1(rand.Reader)
@@ -64,7 +68,7 @@ func Setup(max1, max2 int) *Parameters {
 		_, y2s[i], _ = bn.RandomG2(rand.Reader)
 	}
 
-	return &Parameters{y1s, y2s}
+	return &Parameters{y1s, y2s}, nil
 }
 
 // GenKeyPair 产生Groth公私钥对
@@ -83,13 +87,29 @@ func GenKeyPair(isk *big.Int) (sk *big.Int, pk *PK) {
 }
 
 // NewSignature 产生Groth签名
-func NewSignature(sp *Parameters, sk *big.Int, m *Message) *Signature {
+func NewSignature(sp *Parameters, sk *big.Int, m *Message) (*Signature, error) {
+	ny1, ny2 := len(sp.Y1s), len(sp.Y2s)
+	ny := -1
+	if m.InG1 && m.Len() > ny1 {
+		ny = ny1
+	} else if !m.InG1 && m.Len() > ny2 {
+		ny = ny2
+	}
+	if ny != -1 {
+		return nil, fmt.Errorf(
+			"failed to generate new groth signature: %w, message length at most %d, got %d instead",
+			ErrArgOverflow,
+			ny,
+			m.Len(),
+		)
+	}
+
 	rho, _ := rand.Int(rand.Reader, bn.Order)
 	rhoInv := new(big.Int).ModInverse(rho, bn.Order)
 
 	sig := &Signature{
 		STG1: m.InG1,
-		ts:   make([]any, len(m.ms)),
+		ts:   make([]any, m.Len()),
 	}
 	if m.InG1 {
 		sig.r = new(bn.G2).ScalarBaseMult(rho)
@@ -109,7 +129,7 @@ func NewSignature(sp *Parameters, sk *big.Int, m *Message) *Signature {
 		}
 	}
 
-	return sig
+	return sig, nil
 }
 
 // Verify 验证groth签名

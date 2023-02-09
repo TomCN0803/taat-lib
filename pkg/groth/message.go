@@ -47,3 +47,7 @@ func NewMessage(ms []any) (*Message, error) {
 
 	return &Message{InG1, ms}, nil
 }
+
+func (m *Message) Len() int {
+	return len(m.ms)
+}

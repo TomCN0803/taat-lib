@@ -26,6 +26,13 @@ type Credential struct {
 	prevCreds []*Credential
 }
 
+// NewRootCredential 根据根授权组织的公钥rootPK产生一个根 Credential，L=0
+func NewRootCredential(rootPK *PK) *Credential {
+	return &Credential{
+		upk: rootPK,
+	}
+}
+
 // Delegate 使用L-1层的私钥、L层的groth公钥与L层的属性attrs给L层生成一个新的 Credential，即延长了证书链
 func (c *Credential) Delegate(sp *Parameters, sk *big.Int, upk *PK, attrs []*Attribute) (*Credential, error) {
 	// level indicates L
@@ -34,7 +41,10 @@ func (c *Credential) Delegate(sp *Parameters, sk *big.Int, upk *PK, attrs []*Att
 	if err != nil {
 		return nil, fmt.Errorf("failed to delegate to level-%d user: %w", level, err)
 	}
-	sig := groth.NewSignature(sp.Groth, sk, m)
+	sig, err := groth.NewSignature(sp.Groth, sk, m)
+	if err != nil {
+		return nil, fmt.Errorf("failed to delegate to level-%d user: %w", level, err)
+	}
 
 	return &Credential{
 		sig:       sig,
@@ -63,7 +73,7 @@ func (c *Credential) Verify(sp *Parameters, level int, usk *big.Int, rootPK *PK)
 		return fmt.Errorf("%s: %w", prefix, ErrWrongUPK)
 	}
 
-	for i := level; i >= 0; i-- {
+	for i := level; i > 0; i-- {
 		var curr, prev *Credential
 		if i == level {
 			curr = c
@@ -82,13 +92,13 @@ func (c *Credential) Verify(sp *Parameters, level int, usk *big.Int, rootPK *PK)
 			ppk2 = prev.upk.pk.(*bn.G2)
 		}
 
-		gm, err := c.newGrothMessage(level, curr.upk, curr.attrs)
+		gm, err := c.newGrothMessage(i, curr.upk, curr.attrs)
 		if err != nil {
-			return fmt.Errorf("%s at level-%d: %w", prefix, level, err)
+			return fmt.Errorf("%s at level-%d: %w", prefix, i, err)
 		}
 		err = curr.sig.Verify(sp.Groth, groth.NewGrothPK(ppk1, ppk2), gm)
 		if err != nil {
-			return fmt.Errorf("%s at level-%d: %w", prefix, level, err)
+			return fmt.Errorf("%s at level-%d: %w", prefix, i, err)
 		}
 	}
 
@@ -107,11 +117,11 @@ func (c *Credential) newGrothMessage(level int, upk *PK, attrs []*Attribute) (*g
 
 	ms := make([]any, len(attrs)+1)
 	ms[0] = upk.pk
-	for i := range ms[1:] {
+	for i := 1; i < len(ms); i++ {
 		if pkG1 {
-			ms[i] = attrs[i].attr1
+			ms[i] = attrs[i-1].attr1
 		} else {
-			ms[i] = attrs[i].attr2
+			ms[i] = attrs[i-1].attr2
 		}
 	}
 

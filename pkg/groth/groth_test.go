@@ -18,7 +18,8 @@ const (
 func TestGroth(t *testing.T) {
 	t.Parallel()
 
-	sp := groth.Setup(n1, n2)
+	sp, err := groth.Setup(n1, n2)
+	require.NoError(t, err)
 	sk, pk := groth.GenKeyPair(nil)
 	testCases := []struct {
 		name string
@@ -44,7 +45,8 @@ func TestGroth(t *testing.T) {
 			}
 			msg, err := groth.NewMessage(m)
 			require.NoError(t, err)
-			sig := groth.NewSignature(sp, sk, msg)
+			sig, err := groth.NewSignature(sp, sk, msg)
+			require.NoError(t, err)
 			require.NoError(t, sig.Verify(sp, pk, msg))
 			sig.Randomize(nil)
 			require.NoError(t, sig.Verify(sp, pk, msg))
