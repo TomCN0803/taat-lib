@@ -14,6 +14,7 @@ var (
 	ErrWrongCredNum       = errors.New("wrong number of credentials")
 	ErrInconsistentRootPK = errors.New("inconsistent root public key")
 	ErrWrongUPK           = errors.New("wrong upk for this usk")
+	ErrIllegalLevel       = errors.New("illegal level")
 )
 
 // Credential 用户的证书，L-level的用户证书包括：
@@ -31,6 +32,18 @@ func NewRootCredential(rootPK *PK) *Credential {
 	return &Credential{
 		upk: rootPK,
 	}
+}
+
+// AtLevel returns Credential at level l.
+func (c *Credential) AtLevel(l int) (*Credential, error) {
+	max := len(c.prevCreds)
+	if l > max || l < 0 {
+		return nil, ErrIllegalLevel
+	}
+	if l == max {
+		return c, nil
+	}
+	return c.prevCreds[l], nil
 }
 
 // Delegate 使用L-1层的私钥、L层的groth公钥与L层的属性attrs给L层生成一个新的 Credential，即延长了证书链

@@ -19,14 +19,6 @@ var (
 	ErrFailedMsgPredicate   = errors.New("failed for message predicate")
 )
 
-// Signature Groth签名
-type Signature struct {
-	STG1 bool // indicates whether s and ts are in G1
-	r    any
-	s    any
-	ts   []any
-}
-
 // Parameters Groth公共参数
 type Parameters struct {
 	Y1s []*bn.G1
@@ -84,6 +76,26 @@ func GenKeyPair(isk *big.Int) (sk *big.Int, pk *PK) {
 	}
 
 	return
+}
+
+// Signature Groth签名
+type Signature struct {
+	STG1 bool // indicates whether s and ts are in G1
+	r    any
+	s    any
+	ts   []any
+}
+
+func (sig *Signature) R() any {
+	return sig.r
+}
+
+func (sig *Signature) S() any {
+	return sig.s
+}
+
+func (sig *Signature) Ts() []any {
+	return sig.ts
 }
 
 // NewSignature 产生Groth签名

@@ -12,6 +12,20 @@ type eArg struct {
 	c *big.Int
 }
 
+func newEArg(g1, g2 any, c *big.Int) *eArg {
+	ea := new(eArg)
+	if v, ok := g1.(*bn.G1); ok {
+		ea.a = v
+		ea.b = g2.(*bn.G2)
+	} else {
+		ea.a = g2.(*bn.G1)
+		ea.b = g1.(*bn.G2)
+	}
+	ea.c = c
+
+	return ea
+}
+
 type eProdFn func(pairs []*eArg) *bn.GT
 
 func eProduct(args []*eArg, fn eProdFn) *bn.GT {
