@@ -118,6 +118,11 @@ func (c *Credential) Verify(sp *Parameters, level int, usk *big.Int, rootPK *PK)
 	return nil
 }
 
+//// Prove calls NewCredProof.
+//func (c *Credential) Prove(sp *Parameters, usk, nymSK *big.Int, attrSet AttrSet, nonce []byte) (*CredProof, error) {
+//	return NewCredProof(sp, c, usk, nymSK, attrSet, nonce)
+//}
+
 func (c *Credential) newGrothMessage(level int, upk *PK, attrs []*Attribute) (*groth.Message, error) {
 	pkG1 := level%2 == 0
 	if upk.inG1 != pkG1 {

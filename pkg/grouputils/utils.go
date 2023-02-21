@@ -10,6 +10,7 @@ import (
 
 var (
 	ErrIllegalGroupType      = errors.New("illegal group type, must be G1 or G2")
+	ErrIllegalGroupType2     = errors.New("illegal group type, must be G1 or G2 or GT")
 	ErrInconsistentGroupType = errors.New("inconsistent group type, must be all in G1 or all in G2")
 	ErrSameGroupInPairing    = errors.New("require 'a' and 'b' come from different groups")
 )
@@ -86,7 +87,7 @@ func Neg(a any) (aNeg any, err error) {
 	case *bn.G1:
 		return new(bn.G1).Neg(v), nil
 	case *bn.G2:
-		return new(bn.G2).Neg(v), nil
+		return NewG2(new(big.Int).Mod(big.NewInt(-1), bn.Order)), nil
 	default:
 		return nil, ErrIllegalGroupType
 	}
@@ -133,6 +134,11 @@ func G2Generator() *bn.G2 {
 	return new(bn.G2).ScalarBaseMult(big.NewInt(1))
 }
 
+// GTGenerator generates the generator of GT.
+func GTGenerator() *bn.GT {
+	return new(bn.GT).ScalarBaseMult(big.NewInt(1))
+}
+
 // ProductOfExpG1 computes (g^a)*(h^b) in G1 and returns it.
 func ProductOfExpG1(g *bn.G1, a *big.Int, h *bn.G1, b *big.Int) *bn.G1 {
 	return new(bn.G1).Add(new(bn.G1).ScalarMult(g, a), new(bn.G1).ScalarMult(h, b))
@@ -146,4 +152,18 @@ func ProductOfExpG2(g *bn.G2, a *big.Int, h *bn.G2, b *big.Int) *bn.G2 {
 // AddInv gets the additive inverse of x mod q
 func AddInv(x, q *big.Int) *big.Int {
 	return new(big.Int).Mod(new(big.Int).Neg(x), q)
+}
+
+// Copy returns a copy of a.
+func Copy(a any) (any, error) {
+	switch v := a.(type) {
+	case *bn.G1:
+		return new(bn.G1).Set(v), nil
+	case *bn.G2:
+		return new(bn.G2).Set(v), nil
+	case *bn.GT:
+		return new(bn.GT).Set(v), nil
+	default:
+		return nil, ErrIllegalGroupType2
+	}
 }

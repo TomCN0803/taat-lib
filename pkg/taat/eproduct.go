@@ -75,3 +75,15 @@ func eProdOptMillerLoopUnroll(pairs []*eArg) *bn.GT {
 
 	return res.Finalize()
 }
+
+func eProdNoOpt(pairs []*eArg) *bn.GT {
+	res := new(bn.GT).ScalarBaseMult(big.NewInt(0))
+	for _, arg := range pairs {
+		bk := bn.Pair(arg.a, arg.b)
+		if arg.c != nil {
+			bk.ScalarMult(bk, arg.c)
+		}
+		res.Add(res, bk)
+	}
+	return res
+}

@@ -4,7 +4,6 @@ go 1.20
 
 require (
 	github.com/cloudflare/bn256 v0.0.0-20220804214613-39fbc7d184f0
-	github.com/jinzhu/copier v0.3.5
 	github.com/stretchr/testify v1.8.1
 )
 

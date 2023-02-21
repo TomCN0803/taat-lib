@@ -1,6 +1,8 @@
 package taat
 
-import bn "github.com/cloudflare/bn256"
+import (
+	bn "github.com/cloudflare/bn256"
+)
 
 type eComputer struct {
 	nworker int
@@ -59,6 +61,8 @@ func (ec *eComputer) run() {
 
 	go func() {
 		for r := range ec.resc {
+			//res, _ := utils.Copy(r.res)
+			//log.Println(r.i, r.j, res.(*bn.GT).Marshal())
 			ec.res[r.i][r.j] = r.res
 		}
 		ec.done <- struct{}{}

@@ -11,7 +11,6 @@ import (
 	"github.com/TomCN0803/taat-lib/pkg/groth"
 	utils "github.com/TomCN0803/taat-lib/pkg/grouputils"
 	bn "github.com/cloudflare/bn256"
-	"github.com/jinzhu/copier"
 )
 
 var (
@@ -37,7 +36,7 @@ type resSig struct {
 
 // NewCredProof 产生新的 CredProof
 func NewCredProof(
-	sp *Parameters, cred *Credential, usk, nymSK *big.Int, attrSet AttrSet, nonce []byte,
+	sp *Parameters, cred *Credential, usk, nymSK *big.Int, attrSet AttrSet, m []byte,
 ) (*CredProof, error) {
 	const prefix = "failed to generate credential proof"
 	level := len(cred.prevCreds)
@@ -60,11 +59,7 @@ func NewCredProof(
 		}
 		rhoSigmas[i] = rho
 
-		sig := new(groth.Signature)
-		err = copier.Copy(sig, c.sig)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", prefix, err)
-		}
+		sig := c.sig.Copy()
 		sig.Randomize(rho)
 		randSigs[i] = sig
 
@@ -111,7 +106,9 @@ func NewCredProof(
 		}
 		if i != 1 {
 			eas1 = append(eas1, newEArg(g1neg, g2, rhoUPKs[i-1]))
-			eas2 = append(eas2, newEArg(yiAtLevel(sp, 0, i), g2, rhoUPKs[i-1]))
+			y0 := yiAtLevel(sp, 0, i)
+			yneg, _ := utils.Neg(y0)
+			eas2 = append(eas2, newEArg(yneg, g2, rhoUPKs[i-1]))
 		}
 		ec.enqueue(eas1, i, 0)
 		ec.enqueue(eas2, i, 1)
@@ -119,12 +116,13 @@ func NewCredProof(
 		for j, rhoA := range rhoAttrs[i] {
 			eas := []*eArg{newEArg(g1, c.sig.R(), utils.MulMod(rhoSigmas[i], rhoTSs[i][j+1]))}
 			if i != 1 {
-				eas = append(eas, newEArg(yiAtLevel(sp, j+1, i), g2, rhoUPKs[i-1]))
+				yneg, _ := utils.Neg(yiAtLevel(sp, j+1, i))
+				eas = append(eas, newEArg(yneg, g2, rhoUPKs[i-1]))
 			}
 			if attrSet.Get(i, j) == nil {
 				eas = append(eas, newEArg(g1, g2neg, rhoA))
 			}
-			ec.enqueue(eas, i, j+2)
+			//ec.enqueue(eas, i, j+2)
 		}
 	}
 	cijs := ec.result()
@@ -140,18 +138,18 @@ func NewCredProof(
 		cnym = utils.ProductOfExpG2(utils.G2Generator(), rhoUPKs[level], sp.H2, rhoNym)
 	}
 
-	rPrimes := make([]any, 0, len(randSigs))
-	for _, sig := range randSigs {
-		rPrimes = append(rPrimes, sig.R())
+	rPrimes := make([]any, len(randSigs))
+	for i := 1; i < len(randSigs); i++ {
+		rPrimes[i] = randSigs[i].R()
 	}
-	comm := new(big.Int).SetBytes(hashCredComm(sp.RootUPK, rPrimes, cijs, cnym, attrSet, nonce))
+	comm := new(big.Int).SetBytes(hashCredComm(sp.RootUPK, rPrimes, cijs, cnym, attrSet, m))
 
 	resSigs := make([]*resSig, level+1)
 	resUPK := make([]any, level+1)
 	resAttr := make([][]any, level+1)
 	for i := 1; i <= level; i++ {
 		var g any
-		if i%2 == 1 {
+		if i%2 == 0 {
 			g = utils.G1Generator()
 		} else {
 			g = utils.G2Generator()
@@ -162,10 +160,11 @@ func NewCredProof(
 			return nil, fmt.Errorf("%s: %w", prefix, err)
 		}
 
+		resSigs[i] = new(resSig)
 		resSigs[i].resS = pexp(g, rhoSs[i], randSigs[i].S(), comm)
 		resSigs[i].rPrime = rPrimes[i]
 		if i != level {
-			resUPK[i] = pexp(g, rhoUPKs[i], c.upk, comm)
+			resUPK[i] = pexp(g, rhoUPKs[i], c.upk.pk, comm)
 		}
 
 		resSigs[i].resT = make([]any, len(rhoTSs[i]))
@@ -173,12 +172,18 @@ func NewCredProof(
 		for j, rho := range rhoTSs[i] {
 			resSigs[i].resT[j] = pexp(g, rho, randSigs[i].Ts()[j], comm)
 			if j < len(rhoAttrs[i]) && attrSet.Get(i, j) == nil {
-				resAttr[i][j] = pexp(g, rhoAttrs[i][j], c.attrs[j], comm)
+				var a any
+				if i%2 == 0 {
+					a = c.attrs[j].attr1
+				} else {
+					a = c.attrs[j].attr2
+				}
+				resAttr[i][j] = pexp(g, rhoAttrs[i][j], a, comm)
 			}
 		}
 	}
 
-	resUSK := utils.AddMod(rhoUPKs[len(rhoUPKs)-1], utils.MulMod(comm, usk))
+	resUSK := utils.AddMod(rhoUPKs[level], utils.MulMod(comm, usk))
 	resNym := utils.AddMod(rhoNym, utils.MulMod(comm, nymSK))
 
 	return &CredProof{comm, resSigs, resAttr, resUPK, resUSK, resNym}, nil
@@ -187,8 +192,7 @@ func NewCredProof(
 // Verify verifies a CredProof.
 func (cp *CredProof) Verify(sp *Parameters, attrSet AttrSet, nymPK *PK, nonce []byte) error {
 	const prefix = "failed to verify credential proof"
-	level := len(cp.resSigs)
-	one := big.NewInt(1)
+	level := len(cp.resSigs) - 1
 	cneg := utils.AddInv(cp.comm, bn.Order)
 
 	ec := newEComputer(level, level+1, sp.MaxAttrs+2)
@@ -201,39 +205,47 @@ func (cp *CredProof) Verify(sp *Parameters, attrSet AttrSet, nymPK *PK, nonce []
 		rsig := cp.resSigs[i]
 		y0 := yiAtLevel(sp, 0, i)
 		eas1 := []*eArg{
-			newEArg(rsig.resS, rsig.rPrime, one),
+			newEArg(rsig.resS, rsig.rPrime, nil),
 			newEArg(y0, g2, cneg),
 		}
-		eas2 := []*eArg{newEArg(rsig.resT[0], rsig.rPrime, one)}
+		eas2 := []*eArg{newEArg(rsig.resT[0], rsig.rPrime, nil)}
 		if i == 1 {
-			eas1 = append(eas1, newEArg(g1, sp.RootUPK, cneg))
-			eas2 = append(eas2, newEArg(y0, sp.RootUPK, cneg))
+			eas1 = append(eas1, newEArg(g1, sp.RootUPK.pk, cneg))
+			eas2 = append(eas2, newEArg(y0, sp.RootUPK.pk, cneg))
 		} else {
-			eas1 = append(eas1, newEArg(g1neg, cp.resUPK[i], one))
-			eas2 = append(eas2, newEArg(y0, cp.resUPK[i-1], one))
+			eas1 = append(eas1, newEArg(g1neg, cp.resUPK[i-1], nil))
+			yneg, _ := utils.Neg(y0)
+			eas2 = append(eas2, newEArg(yneg, cp.resUPK[i-1], nil))
 		}
 		if i == level {
 			eas2 = append(eas2, newEArg(g1, g2neg, cp.resUSK))
 		} else {
-			eas2 = append(eas2, newEArg(cp.resUPK[i], g2neg, one))
+			eas2 = append(eas2, newEArg(cp.resUPK[i], g2neg, nil))
 		}
 		ec.enqueue(eas1, i, 0)
 		ec.enqueue(eas2, i, 1)
 
 		for j := range cp.resAttr[i] {
-			eas := []*eArg{newEArg(rsig.resT[j+1], rsig.rPrime, one)}
+			eas := []*eArg{newEArg(rsig.resT[j+1], rsig.rPrime, nil)}
 			yj := yiAtLevel(sp, j+1, i)
+			yjneg, _ := utils.Neg(yj)
 			if i == 1 {
-				eas = append(eas, newEArg(yj, sp.RootUPK, cneg))
+				eas = append(eas, newEArg(yj, sp.RootUPK.pk, cneg))
 			} else {
-				eas = append(eas, newEArg(yj, cp.resUPK[i-1], one))
+				eas = append(eas, newEArg(yjneg, cp.resUPK[i-1], nil))
 			}
 			if attr := attrSet.Get(i, j); attr == nil {
-				eas = append(eas, newEArg(cp.resAttr[i][j], g2neg, one))
+				eas = append(eas, newEArg(cp.resAttr[i][j], g2neg, nil))
 			} else {
-				eas = append(eas, newEArg(attr.Value(), g2, cneg))
+				var a any
+				if i%2 == 0 {
+					a = attr.value.attr1
+				} else {
+					a = attr.value.attr2
+				}
+				eas = append(eas, newEArg(a, g2, cneg))
 			}
-			ec.enqueue(eas, i, j+2)
+			//ec.enqueue(eas, i, j+2)
 		}
 	}
 	cijs := ec.result()
@@ -243,27 +255,23 @@ func (cp *CredProof) Verify(sp *Parameters, attrSet AttrSet, nymPK *PK, nonce []
 		if !nymPK.inG1 {
 			return fmt.Errorf("%s: %w", prefix, ErrWrongGroupNymPK)
 		}
-		cnym = utils.ProductOfExpG1(
+		cnym = new(bn.G1).Add(
 			utils.ProductOfExpG1(utils.G1Generator(), cp.resUSK, sp.H1, cp.resNym),
-			one,
-			nymPK.pk.(*bn.G1),
-			cneg,
+			new(bn.G1).ScalarMult(nymPK.pk.(*bn.G1), cneg),
 		)
 	} else {
 		if nymPK.inG1 {
 			return fmt.Errorf("%s: %w", prefix, ErrWrongGroupNymPK)
 		}
-		cnym = utils.ProductOfExpG2(
+		cnym = new(bn.G2).Add(
 			utils.ProductOfExpG2(utils.G2Generator(), cp.resUSK, sp.H2, cp.resNym),
-			one,
-			nymPK.pk.(*bn.G2),
-			cneg,
+			new(bn.G2).ScalarMult(nymPK.pk.(*bn.G2), cneg),
 		)
 	}
 
 	rPrimes := make([]any, len(cp.resSigs))
-	for i, rsig := range cp.resSigs {
-		rPrimes[i] = rsig.rPrime
+	for i := 1; i < len(cp.resSigs); i++ {
+		rPrimes[i] = cp.resSigs[i].rPrime
 	}
 	comm := hashCredComm(sp.RootUPK, rPrimes, cijs, cnym, attrSet, nonce)
 
@@ -278,12 +286,18 @@ func hashCredComm(rootUPK *PK, rPrimes []any, cijs [][]*bn.GT, cnym serializable
 	h := sha256.New()
 	h.Write(rootUPK.Marshal())
 	for _, v := range rPrimes {
-		h.Write(v.(serializable).Marshal())
+		if v == nil {
+			continue
+		}
+		v2, _ := utils.Copy(v)
+		h.Write(v2.(serializable).Marshal())
 	}
 	for _, c := range compactCijs(cijs) {
-		h.Write(c.Marshal())
+		c2, _ := utils.Copy(c)
+		h.Write(c2.(*bn.GT).Marshal())
 	}
-	h.Write(cnym.Marshal())
+	cnym2, _ := utils.Copy(cnym)
+	h.Write(cnym2.(serializable).Marshal())
 	h.Write(attrSet.Marshal())
 	h.Write(m)
 
@@ -304,7 +318,7 @@ func compactCijs(cijs [][]*bn.GT) []*bn.GT {
 }
 
 func yiAtLevel(sp *Parameters, i, level int) (y any) {
-	if level%2 == 1 {
+	if level%2 == 0 {
 		y = sp.Groth.Y1s[i]
 	} else {
 		y = sp.Groth.Y2s[i]
@@ -313,7 +327,7 @@ func yiAtLevel(sp *Parameters, i, level int) (y any) {
 }
 
 func g1g2AtLevel(i int) (g1 any, g2 any) {
-	if i%2 == 1 {
+	if i%2 == 0 {
 		g1 = utils.G1Generator()
 		g2 = utils.G2Generator()
 	} else {

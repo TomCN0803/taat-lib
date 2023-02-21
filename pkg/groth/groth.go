@@ -46,7 +46,7 @@ func NewGrothPK(pk1 *bn.G1, pk2 *bn.G2) *PK {
 	return &PK{pk1, pk2}
 }
 
-// Setup 初始化在Groth签名
+// Setup 初始化Groth签名
 func Setup(max1, max2 int) (*Parameters, error) {
 	if max1 <= 0 || max2 <= 0 {
 		return nil, fmt.Errorf("failed to set up groth: %w", ErrIllegalMaxMessageNum)
@@ -96,6 +96,18 @@ func (sig *Signature) S() any {
 
 func (sig *Signature) Ts() []any {
 	return sig.ts
+}
+
+func (sig *Signature) Copy() *Signature {
+	res := &Signature{STG1: sig.STG1}
+	res.r, _ = utils.Copy(sig.r)
+	res.s, _ = utils.Copy(sig.s)
+	res.ts = make([]any, len(sig.ts))
+	for i := range res.ts {
+		res.ts[i], _ = utils.Copy(sig.ts[i])
+	}
+
+	return res
 }
 
 // NewSignature 产生Groth签名

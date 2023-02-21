@@ -2,7 +2,6 @@ package taat
 
 import (
 	"crypto/rand"
-	"math/big"
 	"testing"
 
 	utils "github.com/TomCN0803/taat-lib/pkg/grouputils"
@@ -17,7 +16,7 @@ func BenchmarkEProdNoOpt(b *testing.B) {
 		b.StopTimer()
 		args := randEArgs(numEArgs)
 		b.StartTimer()
-		eProductNoOpt(args)
+		eProdNoOpt(args)
 	}
 }
 
@@ -42,8 +41,8 @@ func BenchmarkEProdOptMillerLoopUnroll(b *testing.B) {
 func TestEProduct(t *testing.T) {
 	t.Parallel()
 	args := randEArgs(100)
-	require.True(t, utils.Equals(eProduct(args, eProdOptMiller), eProductNoOpt(args)))
-	require.True(t, utils.Equals(eProduct(args, eProdOptMillerLoopUnroll), eProductNoOpt(args)))
+	require.True(t, utils.Equals(eProduct(args, eProdOptMiller), eProdNoOpt(args)))
+	require.True(t, utils.Equals(eProduct(args, eProdOptMillerLoopUnroll), eProdNoOpt(args)))
 }
 
 func randEArgs(n int) []*eArg {
@@ -55,14 +54,5 @@ func randEArgs(n int) []*eArg {
 		res[i] = &eArg{g1, g2, c}
 	}
 
-	return res
-}
-
-func eProductNoOpt(args []*eArg) *bn.GT {
-	res := new(bn.GT).ScalarBaseMult(big.NewInt(0))
-	for _, arg := range args {
-		bk := new(bn.GT).ScalarMult(bn.Pair(arg.a, arg.b), arg.c)
-		res.Add(res, bk)
-	}
 	return res
 }

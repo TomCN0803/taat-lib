@@ -53,14 +53,17 @@ func (pk *PK) Verify(sk *big.Int) bool {
 // Marshal marshals PK
 func (pk *PK) Marshal() []byte {
 	var res []byte
+	var pk2 serializable
 	if pk.inG1 {
 		res = make([]byte, 0, utils.G1SizeByte+1)
 		res = append(res, 1)
+		pk2 = new(bn.G1).Set(pk.pk.(*bn.G1))
 	} else {
 		res = make([]byte, 0, utils.G2SizeByte+1)
 		res = append(res, 0)
+		pk2 = new(bn.G2).Set(pk.pk.(*bn.G2))
 	}
-	res = append(res, pk.pk.Marshal()...)
+	res = append(res, pk2.Marshal()...)
 
 	return res
 }

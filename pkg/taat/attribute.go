@@ -3,6 +3,7 @@ package taat
 import (
 	"encoding/binary"
 
+	utils "github.com/TomCN0803/taat-lib/pkg/grouputils"
 	bn "github.com/cloudflare/bn256"
 )
 
@@ -34,8 +35,10 @@ func (ase *AttrSetElem) Marshal() []byte {
 	res := make([]byte, 0)
 	res = binary.LittleEndian.AppendUint64(res, uint64(ase.i))
 	res = binary.LittleEndian.AppendUint64(res, uint64(ase.j))
-	res = append(res, ase.value.attr1.Marshal()...)
-	res = append(res, ase.value.attr2.Marshal()...)
+	a1, _ := utils.Copy(ase.value.attr1)
+	res = append(res, a1.(*bn.G1).Marshal()...)
+	a2, _ := utils.Copy(ase.value.attr2)
+	res = append(res, a2.(*bn.G2).Marshal()...)
 
 	return res
 }
