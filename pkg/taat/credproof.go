@@ -122,7 +122,7 @@ func NewCredProof(
 			if attrSet.Get(i, j) == nil {
 				eas = append(eas, newEArg(g1, g2neg, rhoA))
 			}
-			//ec.enqueue(eas, i, j+2)
+			ec.enqueue(eas, i, j+2)
 		}
 	}
 	cijs := ec.result()
@@ -245,7 +245,7 @@ func (cp *CredProof) Verify(sp *Parameters, attrSet AttrSet, nymPK *PK, nonce []
 				}
 				eas = append(eas, newEArg(a, g2, cneg))
 			}
-			//ec.enqueue(eas, i, j+2)
+			ec.enqueue(eas, i, j+2)
 		}
 	}
 	cijs := ec.result()

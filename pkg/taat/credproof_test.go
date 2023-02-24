@@ -57,12 +57,13 @@ func TestCredProof(t *testing.T) {
 		attrSets[i] = randAttrSet(attrs, i, sp.MaxAttrs)
 		creds[i], err = creds[i-1].Delegate(sp, usks[i-1], upks[i], attrs[i])
 		require.NoError(t, err)
-		if i == 3 {
+		if i == 2 {
 			log.Println("********************************************")
 			log.Println("********************************************")
 			log.Println("********************************************")
 			proofs[i], err = NewCredProof(sp, creds[i], usks[i], nymSKs[i], attrSets[i], nonce)
 			require.NoError(t, err)
+			log.Println("=============================")
 			log.Println("=============================")
 			err = proofs[i].Verify(sp, attrSets[i], nymPKs[i], nonce)
 			require.NoError(t, err)
