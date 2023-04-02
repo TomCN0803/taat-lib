@@ -221,6 +221,8 @@ func (sig *Signature) Verify(sp *Parameters, pk *PK, m *Message) error {
 		go efn(i, g1a, g1b, g1c, g2a, g2b, g2c)
 	}
 
+	wg.Wait()
+
 	return err
 }
 
